@@ -3,12 +3,15 @@ using System.Numerics;
 using System.Security.Cryptography;
 using Newtonsoft.Json;
 //Author: Nathaniel Shah
+
 class KeyFile
 {
     public int eSize { get; set; }
     public byte[] E { get; set; }
-    public int n {  get; set; }
+    public int n { get; set; }
     public byte[] N { get; set; }
+}
+
 class Messenger
 {
     static void main(string[] args)
@@ -42,6 +45,7 @@ class Messenger
         return v;
     }
 }
+
 class NumberGen
 {
     private static readonly object ConsoleLock = new object();
@@ -68,6 +72,7 @@ class NumberGen
             return num;
     }
 }
+
 public static class MyExtension
 {
     public static Boolean IsProbablyPrime(this BigInteger value, int k = 10)
