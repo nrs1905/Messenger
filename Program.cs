@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 //Author: Nathaniel Shah
 
 class KeyFile
-{
+{ 
     public int eSize { get; set; }
     public byte[] E { get; set; }
     public int n { get; set; }
