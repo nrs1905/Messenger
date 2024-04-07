@@ -1,15 +1,38 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
 using System.Security.Cryptography;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System;
+using System.IO;
+//using Newtonsoft.Json;
 //Author: Nathaniel Shah
 
-class KeyFile
+class Key
 { 
-    public int eSize { get; set; }
+    public byte[4] eSize { get; set; }
     public byte[] E { get; set; }
-    public int n { get; set; }
+    public byte[4] nSize { get; set; }
     public byte[] N { get; set; }
+}
+
+class KeyReader
+{
+    public int eSize;
+    public int nSize;
+    public BigInteger E;
+    public BigInteger N;
+    public static int Read(string path)
+    {
+        using (StreamReader sr = File.OpenText(path){
+            string s = sr.ReadLine();
+            byte[] k = Convert.FromBase64String(s);
+            eSize = k[0:3].ToInt32();
+            E = k[4:eSize + 4];
+            nSize = k[eSize + 8: eSize + 12];
+            N = k[eSize + 13:eSize + 13 + nSize];
+
+        }
+    }
 }
 
 class Messenger
@@ -25,6 +48,21 @@ class Messenger
         int e1 = rnd.Next(1, 16); // 1 to 2**16 -1
         BigInteger e = NumberGen.primeGen(e1, 1);
         BigInteger d = modInverse(e, t);
+        var key = new Key
+        {
+            eSize = [0,0,0,2]
+            E = ['A', 'B']
+            nSize = [0,0,0,4]
+            N = ['W', 'X', 'Y', 'Z']
+        }
+        string jsonString = JsonSerializer.Serialize(key);
+        using (StreamWriter sw = File.Write(".\test.txt"))
+        {
+            sw.WriteLine(jsonString);
+        }
+        KeyReader keys = new KeyReader();
+        keys.Read(".\test.txt");
+        Console.WriteLine(keys.E, keys.N, keys.eSize, keys.nSize);
     }
 
     // author: toivcs@rit.edu
