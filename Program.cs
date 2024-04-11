@@ -28,16 +28,8 @@ namespace Messenger
     {
         static void Main(string[] args)
         {
-            Random rnd = new Random();
-            int p_bytes = rnd.Next(384, 640);
-            int q_bytes = 1024 - p_bytes;
-            BigInteger p = NumberGen.primeGen(p_bytes, 1);
-            BigInteger q = NumberGen.primeGen(q_bytes, 1);
-            BigInteger n = p * q;
-            BigInteger t = (p - 1) * (q - 1);
-            int e1 = rnd.Next(64, 256);
-            BigInteger e = NumberGen.primeGen(e1, 1);
-            BigInteger d = modInverse(e, t);
+
+
             //string publicKey = getBaseString(e, n);
             //string privateKey = getBaseString(d, n);
             //var publickey = new Key
@@ -67,6 +59,38 @@ namespace Messenger
             //Key? privkey = JsonSerializer.Deserialize<Key>(jsonString2);
             //prkey.Read(privkey.BaseKey);
             //Console.WriteLine(prkey.E.ToString(), prkey.N.ToString(), prkey.eSize, prkey.nSize);
+        }
+
+        public string GetKey(string key)
+        {
+            NotImplementedException er = new NotImplementedException();
+            return er.Message;
+        }
+
+        public (BigInteger, BigInteger, BigInteger) GenKey()
+        {
+            Random rnd = new Random();
+            int p_bytes = rnd.Next(384, 640);
+            int q_bytes = 1024 - p_bytes;
+            BigInteger p = NumberGen.primeGen(p_bytes, 1);
+            BigInteger q = NumberGen.primeGen(q_bytes, 1);
+            BigInteger n = p * q;
+            BigInteger t = (p - 1) * (q - 1);
+            int e1 = rnd.Next(64, 256);
+            BigInteger e = NumberGen.primeGen(e1, 1);
+            BigInteger d = modInverse(e, t);
+            return (e, d, n);
+        }
+
+        public string getMsg(string msg)
+        {
+            NotImplementedException er = new NotImplementedException();
+            return er.Message;
+        }
+
+        public void sendMsg(string msg)
+        {
+
         }
 
         // author: toivcs@rit.edu
