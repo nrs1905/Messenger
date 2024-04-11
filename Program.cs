@@ -4,151 +4,227 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System;
 using System.IO;
+using System.Text;
+using static System.Net.Mime.MediaTypeNames;
+using System.Runtime.InteropServices;
 //using Newtonsoft.Json;
 //Author: Nathaniel Shah
 
-class Key
-{ 
-    public byte[4] eSize { get; set; }
-    public byte[] E { get; set; }
-    public byte[4] nSize { get; set; }
-    public byte[] N { get; set; }
-}
-
-class KeyReader
+namespace Messenger
 {
-    public int eSize;
-    public int nSize;
-    public BigInteger E;
-    public BigInteger N;
-    public static int Read(string path)
+    /// <summary>
+    /// Key class to hold the key value for json serialization
+    /// </summary>
+    class Key
     {
-        using (StreamReader sr = File.OpenText(path){
-            string s = sr.ReadLine();
-            byte[] k = Convert.FromBase64String(s);
-            eSize = k[0:3].ToInt32();
-            E = k[4:eSize + 4];
-            nSize = k[eSize + 8: eSize + 12];
-            N = k[eSize + 13:eSize + 13 + nSize];
-
-        }
-    }
-}
-
-class Messenger
-{
-    static void main(string[] args)
-    {
-        Random rnd = new Random();
-        int p_bytes = rnd.Next(384, 640);
-        int q_bytes = 1024 - p_bytes;
-        BigInteger p = NumberGen.primeGen(p_bytes, 1);
-        BigInteger q = NumberGen.primeGen(q_bytes, 1);
-        BigInteger t = (p -1) * (q -1);
-        int e1 = rnd.Next(1, 16); // 1 to 2**16 -1
-        BigInteger e = NumberGen.primeGen(e1, 1);
-        BigInteger d = modInverse(e, t);
-        var key = new Key
-        {
-            eSize = [0,0,0,2]
-            E = ['A', 'B']
-            nSize = [0,0,0,4]
-            N = ['W', 'X', 'Y', 'Z']
-        }
-        string jsonString = JsonSerializer.Serialize(key);
-        using (StreamWriter sw = File.Write(".\test.txt"))
-        {
-            sw.WriteLine(jsonString);
-        }
-        KeyReader keys = new KeyReader();
-        keys.Read(".\test.txt");
-        Console.WriteLine(keys.E, keys.N, keys.eSize, keys.nSize);
+        public string BaseKey { get; set; }
+        //public byte[] eSize { get; set; }
+        //public byte[] E { get; set; }
+        //public byte[] nSize { get; set; }
+        //public byte[] N { get; set; }
     }
 
-    // author: toivcs@rit.edu
-    static BigInteger modInverse(BigInteger a, BigInteger b)
+    class Messenger
     {
-        BigInteger i = b, v = 0, d = 1;
-        while (a > 0)
+        static void Main(string[] args)
         {
-            BigInteger z = i / a, x = a;
-            a = i % x;
-            i = x;
-            x = d;
-            d = v - z * x;
-            v = x;
-        }
-        v %= b;
-        if (v < 0) v = (v + b) % b;
-        return v;
-    }
-}
+            Random rnd = new Random();
+            int p_bytes = rnd.Next(384, 640);
+            int q_bytes = 1024 - p_bytes;
+            BigInteger p = NumberGen.primeGen(p_bytes, 1);
+            BigInteger q = NumberGen.primeGen(q_bytes, 1);
+            BigInteger n = p * q;
+            BigInteger t = (p - 1) * (q - 1);
+            int e1 = rnd.Next(64, 256);
+            BigInteger e = NumberGen.primeGen(e1, 1);
+            BigInteger d = modInverse(e, t);
+            //string publicKey = getBaseString(e, n);
+            //string privateKey = getBaseString(d, n);
+            //var publickey = new Key
+            //{
+            //    BaseKey = publicKey
+            //};
+            //var privatekey = new Key
+            //{
+            //    BaseKey = privateKey
+            //};
+            ////            byte[] publicBytes = Encoding.UTF8.GetBytes(Publickey);
+            ////return Convert.ToBase64String(publicBytes);
+            //string jsonString = JsonSerializer.Serialize(privatekey);
+            //byte[] privatebytes = Encoding.UTF8.GetBytes(jsonString);
+            //string b64String = Convert.ToBase64String(privatebytes);
 
-class NumberGen
-{
-    private static readonly object ConsoleLock = new object();
-
-    static public BigInteger generator(int bits)
-    {
-        Byte[] bytes = RandomNumberGenerator.GetBytes(bits / 8);
-        BigInteger num = new BigInteger(bytes);
-        while (num % 2 == 0 | num < 0)
-        {
-            num = new BigInteger(RandomNumberGenerator.GetBytes(bits / 8));
+            //string fileName = String.Format(@"{0}\privateKey.txt", Environment.CurrentDirectory);
+            //using (StreamWriter outputFile = new StreamWriter(fileName))
+            //{
+            //    outputFile.WriteLine(b64String);
+            //}
+            //KeyReader prkey = new KeyReader();
+            //StreamReader sr = new StreamReader(fileName);
+            //string b64json = sr.ReadLine();
+            //byte[] privatebytes2 = Convert.FromBase64String(b64String);
+            //string jsonString2 = Encoding.UTF8.GetString(privatebytes2);
+            //Key? privkey = JsonSerializer.Deserialize<Key>(jsonString2);
+            //prkey.Read(privkey.BaseKey);
+            //Console.WriteLine(prkey.E.ToString(), prkey.N.ToString(), prkey.eSize, prkey.nSize);
         }
-        return num;
-    }
-    static public BigInteger primeGen(int bits, int count)
-    {
-        BigInteger num = generator(bits);
-        Boolean prime = num.IsProbablyPrime();
-        while (!prime)
-        {
-            num = generator(bits);
-            prime = num.IsProbablyPrime();
-        }
-            return num;
-    }
-}
 
-public static class MyExtension
-{
-    public static Boolean IsProbablyPrime(this BigInteger value, int k = 10)
-    {
-        BigInteger r;
-        BigInteger d;
-        (r, d) = nbull(value);
-        for (int i = 0; i < k; i++)
+        // author: toivcs@rit.edu
+        static BigInteger modInverse(BigInteger a, BigInteger b)
         {
-            BigInteger a = aCalc(value);
-            BigInteger x = BigInteger.ModPow(a, d, value);
-            if (x == BigInteger.One | x == value - 1) continue;
-            for (int j = 0; j < r - 1; j++)
+            BigInteger i = b, v = 0, d = 1;
+            while (a > 0)
             {
-                x = BigInteger.ModPow(x, 2, value);
-                if (x == value - 1) continue;
+                BigInteger z = i / a, x = a;
+                a = i % x;
+                i = x;
+                x = d;
+                d = v - z * x;
+                v = x;
             }
-            return false;
+            v %= b;
+            if (v < 0) v = (v + b) % b;
+            return v;
         }
-        return true;
     }
-    static private BigInteger aCalc(BigInteger value)
+
+    class NumberGen
     {
-        BigInteger a;
-        a = NumberGen.generator(value.GetByteCount() - 1);
-        return a;
-    }
-    static private (BigInteger, BigInteger) nbull(BigInteger value)
-    {
-        value--;
-        BigInteger num = value;
-        BigInteger counter = 0;
-        while (num % 1 != 0)
+        private static readonly object ConsoleLock = new object();
+
+        static public BigInteger generator(int bits)
         {
-            counter++;
-            value = num;
-            num = num / 2;
+            Byte[] bytes = RandomNumberGenerator.GetBytes(bits / 8);
+            BigInteger num = new BigInteger(bytes);
+            while (num % 2 == 0 | num < 0)
+            {
+                num = new BigInteger(RandomNumberGenerator.GetBytes(bits / 8));
+            }
+            return num;
         }
-        return (counter, value);
+        static public BigInteger primeGen(int bits, int count)
+        {
+            BigInteger num = generator(bits);
+            Boolean prime = num.IsProbablyPrime();
+            while (!prime)
+            {
+                num = generator(bits);
+                prime = num.IsProbablyPrime();
+            }
+            return num;
+        }
     }
+
+    public static class MyExtension
+    {
+        public static Boolean IsProbablyPrime(this BigInteger value, int k = 10)
+        {
+            BigInteger r;
+            BigInteger d;
+            (r, d) = nbull(value);
+            for (int i = 0; i < k; i++)
+            {
+                BigInteger a = aCalc(value);
+                BigInteger x = BigInteger.ModPow(a, d, value);
+                if (x == BigInteger.One | x == value - 1) continue;
+                for (int j = 0; j < r - 1; j++)
+                {
+                    x = BigInteger.ModPow(x, 2, value);
+                    if (x == value - 1) continue;
+                }
+                return false;
+            }
+            return true;
+        }
+        static private BigInteger aCalc(BigInteger value)
+        {
+            BigInteger a;
+            a = NumberGen.generator(value.GetByteCount() - 1);
+            return a;
+        }
+        static private (BigInteger, BigInteger) nbull(BigInteger value)
+        {
+            value--;
+            BigInteger num = value;
+            BigInteger counter = 0;
+            while (num % 1 != 0)
+            {
+                counter++;
+                value = num;
+                num = num / 2;
+            }
+            return (counter, value);
+        }
+    }
+    ///// <summary>
+    ///// KeyReader is a class to read the deserialized json values
+    ///// </summary>
+    //class KeyReader
+    //{
+    //    public int eSize { get; set; }
+    //    public int nSize { get; set; }
+    //    public BigInteger E { get; set; }
+    //    public BigInteger N { get; set; }
+    //    public void Read(string s)
+    //    {
+    //        byte[] bytes = Encoding.UTF8.GetBytes(s);
+    //        byte[] temp = new byte[2048];
+    //        byte[] t = new byte[4];
+    //        byte[] t2 = new byte[4];
+    //        Array.Copy(bytes, 0, t, 0, 4);
+    //        Array.Reverse(t);
+    //        eSize = BitConverter.ToInt32(t);
+    //        Array.Copy(bytes, 4, temp, 0, eSize);
+    //        E = new BigInteger(temp);
+    //        Array.Copy(bytes, 4 + eSize, t2, 0, 4);
+    //        Array.Reverse(t2);
+    //        nSize = BitConverter.ToInt32(t2);
+    //        Console.WriteLine(eSize.ToString() + " " + nSize.ToString() + " " + 8);
+    //        Console.WriteLine(bytes.Length);
+    //        Array.Copy(bytes, 8 + eSize, temp, 0, nSize);
+    //        N = new BigInteger(temp);
+    //        //string temp = s.Substring(0, 4);
+    //        //Console.WriteLine(temp.Length);
+    //        //byte[] t = Convert.FromBase64String(temp);
+    //        //Array.Reverse(t);
+    //        //eSize = BitConverter.ToInt32(t);
+    //        //temp = s.Substring(4, eSize);
+    //        //E = new BigInteger(Convert.FromBase64String(temp));
+    //        //temp = s.Substring(4 + eSize, 4);
+    //        //t = Convert.FromBase64String(temp);
+    //        //Array.Reverse(t);
+    //        //nSize = BitConverter.ToInt32(t);
+    //        //temp = s.Substring(8 + eSize, nSize);
+    //        //N = new BigInteger(Convert.FromBase64String(temp));
+    //    }
+    //}
+    //static String getBaseString(BigInteger e, BigInteger n)
+    //{
+    //    int eSize = e.GetByteCount();
+    //    int nSize = n.GetByteCount();
+    //    byte[] Base = new byte[8 + eSize + nSize];
+    //    byte[] es = BitConverter.GetBytes(eSize);
+    //    byte[] ns = BitConverter.GetBytes(nSize);
+    //    Console.WriteLine(BitConverter.ToInt32(es).ToString());
+    //    Array.Reverse(es);
+    //    Array.Reverse(ns);
+    //    Array.Copy(es, 0, Base, 0, 4);
+    //    es = e.ToByteArray();
+    //    Array.Copy(es, 0, Base, 4, eSize);
+    //    Array.Copy(ns, 0, Base, 4 + eSize, 4);
+    //    ns = n.ToByteArray();
+    //    Array.Copy(ns, 0, Base, 8 + eSize, nSize);
+    //    return Encoding.UTF8.GetString(Base);
+    //    //byte[] temp = BitConverter.GetBytes(eSize);
+    //    //Array.Reverse(temp); //makes it big endian
+    //    //String Publickey = temp.ToString();
+    //    //temp = e.ToByteArray();
+    //    //Publickey += temp.ToString();
+    //    //temp = BitConverter.GetBytes(nSize);
+    //    //Array.Reverse(temp); //makes it big endian
+    //    //Publickey += temp.ToString();
+    //    //temp = n.ToByteArray();
+    //    //Publickey += temp.ToString();
+    //    //return Publickey;
+    //}
 }
