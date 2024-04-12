@@ -12,6 +12,7 @@ using System.Dynamic;
 using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
+using System.IO.Enumeration;
 //using Newtonsoft.Json;
 //Author: Nathaniel Shah
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -24,7 +25,7 @@ namespace Messenger
     /// </summary>
     class KeyStorage
     {
-        public required string email { get; set; }
+        public string email { get; set; }
         public required string key { get; set; }
     }
     /// <summary>
@@ -32,7 +33,7 @@ namespace Messenger
     /// </summary>
     class PrivateKeyStorage
     {
-        public required string[] email { get; set; }
+        public string[] email { get; set; }
         public required string key { get; set; }
     }
     /// <summary>
@@ -77,7 +78,6 @@ namespace Messenger
             task = getMsg(msg);
             task.Wait();
 
-            RSA(key.E, key.N, msg.content);
         }
 
         static async Task getKey(KeyClass key)
@@ -186,18 +186,13 @@ namespace Messenger
             Array.Copy(bn, 0, bPubKey, 4 + ce, 4);
             Array.Copy(bN, 0, bPubKey, 8 + ce, cn);
 
-            string[] emails = new string[1];
-            emails[0] = email;
-
             PrivateKeyStorage prkey = new PrivateKeyStorage
             {
-                email = emails,
                 key = Convert.ToBase64String(bPrKey)
             };
 
             KeyStorage pubkey = new KeyStorage
             {
-                email = email,
                 key = Convert.ToBase64String(bPubKey)
             };
 
@@ -222,9 +217,45 @@ namespace Messenger
         static async Task getMsg(MsgClass msg)
         {
             MsgClass? MSG = await client.GetFromJsonAsync<MsgClass>(MURI + email);
-            msg.email = MSG.email;
-            msg.content = MSG.content;
-            msg.messageTime = MSG.messageTime;
+
+            string b64key = checkEmails(msg.email);
+            if (b64key != "False")
+            {
+                byte[] bmsg = Convert.FromBase64String(MSG.content);
+                KeyClass keyC = new KeyClass();
+                keySolver(keyC, b64key);
+                string Message = RSA(keyC.E, keyC.N, bmsg);
+                Console.WriteLine(Message);
+            }
+            else
+            {
+                Console.WriteLine("This message can't be decoded.");
+            }
+        }
+
+        static string checkEmails(string email)
+        {
+            try
+            {
+                string fileName = String.Format(@"{0}\private.key", Environment.CurrentDirectory);
+                using (StreamReader sr = new(fileName))
+                {
+                    string json = sr.ReadToEnd();
+                    PrivateKeyStorage? priv = JsonSerializer.Deserialize<PrivateKeyStorage>(json);
+                    string[] emails = priv.email;
+                    foreach (string s in emails)
+                    {
+                        if (s.Equals(email))
+                            return priv.key;
+                    }
+                    return "False";
+                }
+            }
+            catch(FileNotFoundException ex)
+            {
+                Console.WriteLine("private.key does not exist. Please create a private key first");
+                return "False";
+            }
         }
 
         static void sendMsg(string msg)
@@ -250,13 +281,12 @@ namespace Messenger
             return v;
         }
 
-        static string RSA(BigInteger e, BigInteger n, string msg)
+        static string RSA(BigInteger e, BigInteger n, byte[] bmsg)
         {
-            byte[] bmsg = Convert.FromBase64String(msg);
             BigInteger MSG = new(bmsg);
             MSG = BigInteger.ModPow(MSG, e, n);
             bmsg = MSG.ToByteArray();
-            msg = BitConverter.ToString(bmsg);
+            string msg = BitConverter.ToString(bmsg);
             return msg;
         }
     }
