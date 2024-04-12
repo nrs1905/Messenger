@@ -87,7 +87,7 @@ namespace Messenger
             {
                 KeyStorage? publicKey = await client.GetFromJsonAsync<KeyStorage>(KURI + email);
 
-                string fileName = String.Format(@"{0}\ForeignKey.txt", Environment.CurrentDirectory);
+                string fileName = String.Format(@"{0}\" + email + ".key", Environment.CurrentDirectory);
                 using (StreamWriter outputFile = new(fileName))
                 {
                     outputFile.WriteLine(publicKey.key);
@@ -260,7 +260,7 @@ namespace Messenger
         }
 
         static async void sendKey()
-        {//MsgClass? MSG = await client.GetFromJsonAsync<MsgClass>(MURI + email);
+        {
             string fileName = String.Format(@"{0}\public.key", Environment.CurrentDirectory);
             using (StreamReader sr = new(fileName))
             {
@@ -283,10 +283,34 @@ namespace Messenger
             }
         }
 
-        static void sendMsg(string msg)
+        static async void sendMsg(string msg)
         {
-
+            string fileName = String.Format(@"{0}\" + email + ".key", Environment.CurrentDirectory);
+            if (File.Exists(fileName))
+            {
+                using (StreamReader sr = new(fileName))
+                {
+                    string json = sr.ReadToEnd();
+                    KeyStorage? keyC = JsonSerializer.Deserialize<KeyStorage>(json);
+                    string key = keyC.key;
+                    KeyClass keyClass = new KeyClass();
+                    keySolver(keyClass, key);
+                    byte[] bmsg = Encoding.UTF8.GetBytes(msg);
+                    string b64msg = RSA(keyClass.E, keyClass.N, bmsg);
+                    MsgClass MSG = new MsgClass()
+                    {
+                        email = email,
+                        content = b64msg
+                    };
+                    await client.PutAsJsonAsync<MsgClass>(MURI + email, MSG);
+                }
+            }
+            else
+            {
+                Console.WriteLine("please download the user's public key first");
+            }
         }
+
         // author: toivcs@rit.edu
         static BigInteger modInverse(BigInteger a, BigInteger b)
         {
