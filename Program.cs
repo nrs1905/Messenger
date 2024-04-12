@@ -61,7 +61,7 @@ namespace Messenger
     {
         static string help = "dotnet run <option> <other arguments>" + Environment.NewLine +
             "- option - the task to perform, keyGen, sendKey, getKey, sendMsg, getMsg" + Environment.NewLine +
-            "   keyGen takes no other arguments, and creates a private and public key for you to use" + Environment.NewLine +
+            "   keyGen takes the number of bits to use in the key" + Environment.NewLine +
             "   sendKey requires your email as the other argument" + Environment.NewLine +
             "   getKey requires an email as the other argument, and saves the public key of the email given" + Environment.NewLine +
             "   sendMsg requires the email to send to, THEN the message to send. ie. 'dotnet run sendMsg bob@mail.com 'Hello bob!''" + Environment.NewLine +
@@ -84,7 +84,15 @@ namespace Messenger
 
             if(task == "keyGen")
             {
-                genKey();
+                if (args.Length != 2)
+                {
+                    Console.WriteLine(help);
+                }
+                else
+                {
+                    int bits = int.Parse(args[1]);
+                    genKey(bits);
+                }
             }
             else if(task == "sendKey")
             {
@@ -92,8 +100,11 @@ namespace Messenger
                 {
                     Console.WriteLine(help);
                 }
-                Task act = sendKey();
-                act.Wait();
+                else
+                {
+                    Task act = sendKey();
+                    act.Wait();
+                }
             }
             else if(task == "getKey")
             {
@@ -101,9 +112,11 @@ namespace Messenger
                 {
                     Console.WriteLine(help);
                 }
-                Task act = getKey();
-                act.Wait();
-
+                else
+                {
+                    Task act = getKey();
+                    act.Wait();
+                }
             }
             else if(task == "sendMsg")
             {
@@ -111,9 +124,12 @@ namespace Messenger
                 {
                     Console.WriteLine(help);
                 }
-                string msg = args[2];
-                Task act = sendMsg(msg);
-                act.Wait();
+                else
+                {
+                    string msg = args[2];
+                    Task act = sendMsg(msg);
+                    act.Wait();
+                }
             }
             else if (task == "getMsg")
             {
@@ -121,8 +137,11 @@ namespace Messenger
                 {
                     Console.WriteLine(help);
                 }
-                Task act = getMsg();
-                act.Wait();
+                else
+                {
+                    Task act = getMsg();
+                    act.Wait();
+                }
             }
         }
 
@@ -187,11 +206,12 @@ namespace Messenger
             key.E = E;
         }
 
-        static void genKey()
+        static void genKey(int bits)
         {
             Random rnd = new Random();
-
-            int p_bytes = rnd.Next(384, 640);
+            int lower = Convert.ToInt32(bits * 0.75);
+            int higher = Convert.ToInt32(bits * 1.25);
+            int p_bytes = rnd.Next(lower, higher);
             int q_bytes = 1024 - p_bytes;
 
             BigInteger p = NumberGen.primeGen(p_bytes, 1);
@@ -337,6 +357,7 @@ namespace Messenger
             {
                 sw.WriteLine(Js);
             }
+            Console.WriteLine("Key saved");
         }
 
         static async Task sendMsg(string msg)
@@ -360,12 +381,20 @@ namespace Messenger
                         email = email,
                         content = b64msg
                     };
-                    await client.PutAsJsonAsync<MsgClass>(MURI + email, MSG);
+                    var response = await client.PutAsJsonAsync<MsgClass>(MURI + email, MSG);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Console.WriteLine("Message written");
+                    }
+                    else
+                    {
+                        Console.WriteLine("The server returned a error");
+                    }
                 }
             }
             else
             {
-                Console.WriteLine("please download the user's public key first");
+                Console.WriteLine("Key does not exist for " + email);
             }
         }
 
