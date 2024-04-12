@@ -13,6 +13,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
 using System.IO.Enumeration;
+using Newtonsoft.Json.Bson;
 //using Newtonsoft.Json;
 //Author: Nathaniel Shah
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -251,10 +252,34 @@ namespace Messenger
                     return "False";
                 }
             }
-            catch(FileNotFoundException ex)
+            catch(FileNotFoundException)
             {
                 Console.WriteLine("private.key does not exist. Please create a private key first");
                 return "False";
+            }
+        }
+
+        static async void sendKey()
+        {//MsgClass? MSG = await client.GetFromJsonAsync<MsgClass>(MURI + email);
+            string fileName = String.Format(@"{0}\public.key", Environment.CurrentDirectory);
+            using (StreamReader sr = new(fileName))
+            {
+                string json = sr.ReadToEnd();
+                KeyStorage? pubKey = JsonSerializer.Deserialize<KeyStorage>(json);
+                pubKey.email = email;
+                await client.PutAsJsonAsync<KeyStorage>(KURI + email, pubKey);
+            }
+            fileName = String.Format(@"{0}\private.key", Environment.CurrentDirectory);
+            using (StreamReader sr = new(fileName))
+            {
+                string json = sr.ReadToEnd();
+                PrivateKeyStorage? privKey = JsonSerializer.Deserialize<PrivateKeyStorage>(json);
+                privKey.email.Append(email);
+                json = JsonSerializer.Serialize<PrivateKeyStorage>(privKey);
+                using (StreamWriter sw = new(fileName))
+                {
+                    sw.WriteLine(json);
+                }
             }
         }
 
@@ -262,7 +287,6 @@ namespace Messenger
         {
 
         }
-
         // author: toivcs@rit.edu
         static BigInteger modInverse(BigInteger a, BigInteger b)
         {
