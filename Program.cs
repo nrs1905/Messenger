@@ -13,6 +13,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
 //using Newtonsoft.Json;
 //Author: Nathaniel Shah
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
 
 namespace Messenger
 {
@@ -23,12 +25,10 @@ namespace Messenger
     {
         public required string email { get; set; }
         public required string key { get; set; }
-        //public byte[] eSize { get; set; }
-        //public byte[] E { get; set; }
-        //public byte[] nSize { get; set; }
-        //public byte[] N { get; set; }
     }
-
+    /// <summary>
+    /// Key class to hold real values of a key
+    /// </summary>
     class KeyClass
     {
         public int e { get; set; }
@@ -36,35 +36,48 @@ namespace Messenger
         public BigInteger E { get; set; }
         public BigInteger N { get; set; }
     }
+    class MsgClass
+    {
+        public string email { get; set; }
+        public string content { get; set; }
+        public DateTime messageTime { get; set; }
+    }
 
+    /// <summary>
+    /// Class handling the creation, serliazation and sending/receiving of keys
+    /// </summary>
     class Messenger
     {
         static readonly HttpClient client = new HttpClient();
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
         static string email;
-        static string KURI;
+        static string KURI = "http://voyager.cs.rit.edu:5050/Key/"; //They key uri
+        static string MURI = "http://voyager.cs.rit.edu:5050/Message/"; //The message uri
         static void Main(string[] args)
         {
-            KURI = "http://voyager.cs.rit.edu:5050/Key/";
             email = "toivcs@rit.edu";
+
             KeyClass key = new KeyClass();
-            Task task = GetKey(key);
+            Task task = getKey(key);
             task.Wait();
             Console.WriteLine(key.e);
             Console.WriteLine(key.E);
             Console.WriteLine(key.n);
             Console.WriteLine(key.N);
 
+            MsgClass msg = new MsgClass();
+            task = getMsg(msg);
+            task.Wait();
+
+            RSA(key.E, key.N, msg.content);
         }
 
-        static async Task GetKey(KeyClass key)
+        static async Task getKey(KeyClass key)
         {
             try
             {
                 KeyStorage? publicKey = await client.GetFromJsonAsync<KeyStorage>(KURI + email);
 
-                string fileName = String.Format(@"{0}\publicKey.txt", Environment.CurrentDirectory);
+                string fileName = String.Format(@"{0}\ForeignKey.txt", Environment.CurrentDirectory);
                 using (StreamWriter outputFile = new(fileName))
                 {
                     outputFile.WriteLine(publicKey.key);
@@ -81,7 +94,7 @@ namespace Messenger
 
                 byte[] EBytes = new byte[e];
                 Array.Copy(raw, 4, EBytes, 0, e);
-                BigInteger E = new BigInteger(EBytes);
+                BigInteger E = new(EBytes);
 
                 Array.Copy(raw, e + 4, nBytes, 0, 4);
                 Array.Reverse(nBytes);
@@ -89,7 +102,7 @@ namespace Messenger
 
                 byte[] NBytes = new byte[n];
                 Array.Copy(raw, 8 + e, NBytes, 0, n);
-                BigInteger N = new BigInteger(NBytes);
+                BigInteger N = new(NBytes);
                 key.e = e;
                 key.n = n;
                 key.N = N;
@@ -107,14 +120,14 @@ namespace Messenger
             {
                 Console.WriteLine(ex.Message);
             }
-            //catch
-            //{
-            //    Console.WriteLine("There was an error storing the key");
-            //}
+            catch
+            {
+                Console.WriteLine("There was an error storing the key");
+            }
 
         }
 
-        public (BigInteger, BigInteger, BigInteger) GenKey()
+        public (BigInteger, BigInteger, BigInteger) genKey()
         {
             Random rnd = new Random();
             int p_bytes = rnd.Next(384, 640);
@@ -129,13 +142,15 @@ namespace Messenger
             return (e, d, n);
         }
 
-        public string getMsg(string msg)
+        static async Task getMsg(MsgClass msg)
         {
-            NotImplementedException er = new NotImplementedException();
-            return er.Message;
+            MsgClass? MSG = await client.GetFromJsonAsync<MsgClass>(MURI + email);
+            msg.email = MSG.email;
+            msg.content = MSG.content;
+            msg.messageTime = MSG.messageTime;
         }
 
-        public void sendMsg(string msg)
+        static void sendMsg(string msg)
         {
 
         }
@@ -156,6 +171,16 @@ namespace Messenger
             v %= b;
             if (v < 0) v = (v + b) % b;
             return v;
+        }
+
+        static string RSA(BigInteger e, BigInteger n, string msg)
+        {
+            byte[] bmsg = Convert.FromBase64String(msg);
+            BigInteger MSG = new(bmsg);
+            MSG = BigInteger.ModPow(MSG, e, n);
+            bmsg = MSG.ToByteArray();
+            msg = BitConverter.ToString(bmsg);
+            return msg;
         }
     }
 
