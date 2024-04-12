@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Dynamic;
 using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
+using System.Security.Cryptography.X509Certificates;
 //using Newtonsoft.Json;
 //Author: Nathaniel Shah
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
@@ -24,6 +25,14 @@ namespace Messenger
     class KeyStorage
     {
         public required string email { get; set; }
+        public required string key { get; set; }
+    }
+    /// <summary>
+    /// Key class to hold the key value for json serialization
+    /// </summary>
+    class PrivateKeyStorage
+    {
+        public required string[] email { get; set; }
         public required string key { get; set; }
     }
     /// <summary>
@@ -82,31 +91,8 @@ namespace Messenger
                 {
                     outputFile.WriteLine(publicKey.key);
                 }
-
-                byte[] raw = Convert.FromBase64String(publicKey.key);
-
-                byte[] nBytes = new byte[4];
-                byte[] eBytes = new byte[4];
-
-                Array.Copy(raw, 0, eBytes, 0, 4);
-                Array.Reverse(eBytes);
-                int e = BitConverter.ToInt32(eBytes);
-
-                byte[] EBytes = new byte[e];
-                Array.Copy(raw, 4, EBytes, 0, e);
-                BigInteger E = new(EBytes);
-
-                Array.Copy(raw, e + 4, nBytes, 0, 4);
-                Array.Reverse(nBytes);
-                int n = BitConverter.ToInt32(nBytes);
-
-                byte[] NBytes = new byte[n];
-                Array.Copy(raw, 8 + e, NBytes, 0, n);
-                BigInteger N = new(NBytes);
-                key.e = e;
-                key.n = n;
-                key.N = N;
-                key.E = E;
+                keySolver(key, publicKey.key);
+                
             }
             catch (HttpRequestException ex)
             {
@@ -127,19 +113,110 @@ namespace Messenger
 
         }
 
-        public (BigInteger, BigInteger, BigInteger) genKey()
+        public static void keySolver(KeyClass key, string b64key)
+        {
+            byte[] raw = Convert.FromBase64String(b64key);
+
+            byte[] nBytes = new byte[4];
+            byte[] eBytes = new byte[4];
+
+            Array.Copy(raw, 0, eBytes, 0, 4);
+            Array.Reverse(eBytes);
+            int e = BitConverter.ToInt32(eBytes);
+
+            byte[] EBytes = new byte[e];
+            Array.Copy(raw, 4, EBytes, 0, e);
+            BigInteger E = new(EBytes);
+
+            Array.Copy(raw, e + 4, nBytes, 0, 4);
+            Array.Reverse(nBytes);
+            int n = BitConverter.ToInt32(nBytes);
+
+            byte[] NBytes = new byte[n];
+            Array.Copy(raw, 8 + e, NBytes, 0, n);
+            BigInteger N = new(NBytes);
+            key.e = e;
+            key.n = n;
+            key.N = N;
+            key.E = E;
+        }
+
+        public void genKey()
         {
             Random rnd = new Random();
+
             int p_bytes = rnd.Next(384, 640);
             int q_bytes = 1024 - p_bytes;
+
             BigInteger p = NumberGen.primeGen(p_bytes, 1);
             BigInteger q = NumberGen.primeGen(q_bytes, 1);
             BigInteger n = p * q;
             BigInteger t = (p - 1) * (q - 1);
+
             int e1 = rnd.Next(64, 256);
             BigInteger e = NumberGen.primeGen(e1, 1);
             BigInteger d = modInverse(e, t);
-            return (e, d, n);
+
+            byte[] bPubKey = new byte[e.GetByteCount() + n.GetByteCount() + 8];
+            byte[] bPrKey = new byte[d.GetByteCount() + n.GetByteCount() + 8];
+
+            byte[] bE = e.ToByteArray();
+            byte[] bD = d.ToByteArray();
+            byte[] bN = n.ToByteArray();
+
+            int ce = e.GetByteCount();
+            int cd = d.GetByteCount();
+            int cn = n.GetByteCount();
+
+            byte[] be = BitConverter.GetBytes(ce);
+            byte[] bd = BitConverter.GetBytes(cd);
+            byte[] bn = BitConverter.GetBytes(cn);
+
+            Array.Reverse(be);
+            Array.Reverse(bd);
+            Array.Reverse(bn);
+
+            Array.Copy(bd, 0, bPrKey, 0, 4);
+            Array.Copy(bD, 0, bPrKey, 4, cd);
+            Array.Copy(bn, 0, bPrKey, 4 + cd, 4);
+            Array.Copy(bN, 0, bPrKey, 8 + cd, cn);
+
+            Array.Copy(be, 0, bPubKey, 0, 4);
+            Array.Copy(bE, 0, bPubKey, 4, ce);
+            Array.Copy(bn, 0, bPubKey, 4 + ce, 4);
+            Array.Copy(bN, 0, bPubKey, 8 + ce, cn);
+
+            string[] emails = new string[1];
+            emails[0] = email;
+
+            PrivateKeyStorage prkey = new PrivateKeyStorage
+            {
+                email = emails,
+                key = Convert.ToBase64String(bPrKey)
+            };
+
+            KeyStorage pubkey = new KeyStorage
+            {
+                email = email,
+                key = Convert.ToBase64String(bPubKey)
+            };
+
+            string privateKey = JsonSerializer.Serialize(prkey);
+            string publicKey = JsonSerializer.Serialize(pubkey);
+
+
+            string fileName = String.Format(@"{0}\private.key", Environment.CurrentDirectory);
+            using (StreamWriter outputFile = new(fileName))
+            {
+                outputFile.WriteLine(privateKey);
+            }
+
+            fileName = String.Format(@"{0}\public.key", Environment.CurrentDirectory);
+            using (StreamWriter outputFile = new(fileName))
+            {
+                outputFile.WriteLine(publicKey);
+            }
+
         }
 
         static async Task getMsg(MsgClass msg)
