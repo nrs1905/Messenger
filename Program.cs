@@ -59,30 +59,71 @@ namespace Messenger
     /// </summary>
     class Messenger
     {
+        static string help = "dotnet run <option> <other arguments>" + Environment.NewLine +
+            "- option - the task to perform, keyGen, sendKey, getKey, sendMsg, getMsg" + Environment.NewLine +
+            "   keyGen takes no other arguments, and creates a private and public key for you to use" + Environment.NewLine +
+            "   sendKey requires your email as the other argument" + Environment.NewLine +
+            "   getKey requires an email as the other argument, and saves the public key of the email given" + Environment.NewLine +
+            "   sendMsg requires the email to send to, THEN the message to send. ie. 'dotnet run sendMsg bob@mail.com 'Hello bob!''" + Environment.NewLine +
+            "   getMsg requires an email and gets the message associated with that email address" + Environment.NewLine +
+            "- other arguments - the email and/or message, the requirements of this option are dictated above" + Environment.NewLine;
         static readonly HttpClient client = new HttpClient();
         static string email;
         static string KURI = "http://voyager.cs.rit.edu:5050/Key/"; //They key uri
         static string MURI = "http://voyager.cs.rit.edu:5050/Message/"; //The message uri
         static void Main(string[] args)
         {
-            email = "toivcs@rit.edu";
+            string task = args[0];
+            if (args.Length > 1)
+                email = args[1];
 
-            KeyClass key = new KeyClass();
-            Task task = getKey(key);
-            task.Wait();
-            Console.WriteLine(key.e);
-            Console.WriteLine(key.E);
-            Console.WriteLine(key.n);
-            Console.WriteLine(key.N);
+            if(task == "keyGen")
+            {
+                genKey();
+            }
+            else if(task == "sendKey")
+            {
+                if (args.Length != 2)
+                {
+                    Console.WriteLine(help);
+                }
+                Task act = sendKey();
+                act.Wait();
+            }
+            else if(task == "getKey")
+            {
+                if (args.Length != 2)
+                {
+                    Console.WriteLine(help);
+                }
+                Task act = getKey();
+                act.Wait();
 
-            MsgClass msg = new MsgClass();
-            task = getMsg(msg);
-            task.Wait();
-
+            }
+            else if(task == "sendMsg")
+            {
+                if (args.Length != 3)
+                {
+                    Console.WriteLine(help);
+                }
+                string msg = args[2];
+                Task act = sendMsg(msg);
+                act.Wait();
+            }
+            else if (task == "getMsg")
+            {
+                if (args.Length != 2)
+                {
+                    Console.WriteLine(help);
+                }
+                Task act = getMsg();
+                act.Wait();
+            }
         }
 
-        static async Task getKey(KeyClass key)
+        static async Task getKey()
         {
+            KeyClass key = new KeyClass();
             try
             {
                 KeyStorage? publicKey = await client.GetFromJsonAsync<KeyStorage>(KURI + email);
@@ -142,7 +183,7 @@ namespace Messenger
             key.E = E;
         }
 
-        public void genKey()
+        static void genKey()
         {
             Random rnd = new Random();
 
@@ -215,11 +256,11 @@ namespace Messenger
 
         }
 
-        static async Task getMsg(MsgClass msg)
+        static async Task getMsg()
         {
             MsgClass? MSG = await client.GetFromJsonAsync<MsgClass>(MURI + email);
 
-            string b64key = checkEmails(msg.email);
+            string b64key = checkEmails(email);
             if (b64key != "False")
             {
                 byte[] bmsg = Convert.FromBase64String(MSG.content);
@@ -259,7 +300,7 @@ namespace Messenger
             }
         }
 
-        static async void sendKey()
+        static async Task sendKey()
         {
             string fileName = String.Format(@"{0}\public.key", Environment.CurrentDirectory);
             using (StreamReader sr = new(fileName))
@@ -283,7 +324,7 @@ namespace Messenger
             }
         }
 
-        static async void sendMsg(string msg)
+        static async Task sendMsg(string msg)
         {
             string fileName = String.Format(@"{0}\" + email + ".key", Environment.CurrentDirectory);
             if (File.Exists(fileName))
