@@ -270,8 +270,9 @@ namespace Messenger
                 byte[] bmsg = Convert.FromBase64String(MSG.content);
                 KeyClass keyC = new KeyClass();
                 keySolver(keyC, b64key);
-                string Message = RSA(keyC.E, keyC.N, bmsg);
-                Console.WriteLine(Message);
+                Console.WriteLine(Encoding.UTF8.GetString(bmsg));
+                //string Message = RSA(keyC.E, keyC.N, bmsg);
+                //Console.WriteLine(Message);
             }
             else
             {
