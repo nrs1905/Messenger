@@ -73,6 +73,11 @@ namespace Messenger
         static string MURI = "http://voyager.cs.rit.edu:5050/Message/"; //The message uri
         static void Main(string[] args)
         {
+            if (args.Length == 0)
+            {
+                Console.WriteLine(help);
+                return;
+            }
             string task = args[0];
             if (args.Length > 1)
                 email = args[1];
@@ -302,6 +307,7 @@ namespace Messenger
 
         static async Task sendKey()
         {
+            PrivateKeyStorage privateKey;
             string fileName = String.Format(@"{0}\public.key", Environment.CurrentDirectory);
             using (StreamReader sr = new(fileName))
             {
@@ -315,12 +321,21 @@ namespace Messenger
             {
                 string json = sr.ReadToEnd();
                 PrivateKeyStorage? privKey = JsonSerializer.Deserialize<PrivateKeyStorage>(json);
-                privKey.email.Append(email);
-                json = JsonSerializer.Serialize<PrivateKeyStorage>(privKey);
-                using (StreamWriter sw = new(fileName))
+                if (privKey.email is not null) {
+                    privKey.email.Append(email);
+                   }
+                else
                 {
-                    sw.WriteLine(json);
+                    string[] emails = new string[1];
+                    emails[0] = email;
+                    privKey.email = emails;
                 }
+                privateKey = privKey;
+            }
+            string Js = JsonSerializer.Serialize<PrivateKeyStorage>(privateKey);
+            using (StreamWriter sw = new(fileName))
+            {
+                sw.WriteLine(Js);
             }
         }
 
