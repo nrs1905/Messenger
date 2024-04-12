@@ -136,9 +136,8 @@ namespace Messenger
                 string fileName = String.Format(@"{0}\" + email + ".key", Environment.CurrentDirectory);
                 using (StreamWriter outputFile = new(fileName))
                 {
-                    outputFile.WriteLine(publicKey.key);
+                    outputFile.Write(JsonSerializer.Serialize(publicKey));
                 }
-                keySolver(key, publicKey.key);
                 
             }
             catch (HttpRequestException ex)
@@ -352,7 +351,9 @@ namespace Messenger
                     KeyClass keyClass = new KeyClass();
                     keySolver(keyClass, key);
                     byte[] bmsg = Encoding.UTF8.GetBytes(msg);
-                    string b64msg = RSA(keyClass.E, keyClass.N, bmsg);
+                    string pmsg = RSA(keyClass.E, keyClass.N, bmsg);
+                    byte[] bpmsg = Encoding.UTF8.GetBytes(msg);
+                    string b64msg = Convert.ToBase64String(bmsg);
                     MsgClass MSG = new MsgClass()
                     {
                         email = email,
