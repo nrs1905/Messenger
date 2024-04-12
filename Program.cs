@@ -7,6 +7,10 @@ using System.IO;
 using System.Text;
 using static System.Net.Mime.MediaTypeNames;
 using System.Runtime.InteropServices;
+using System.Net.Http;
+using System.Dynamic;
+using System.ComponentModel.DataAnnotations;
+using System.Net.Http.Json;
 //using Newtonsoft.Json;
 //Author: Nathaniel Shah
 
@@ -15,56 +19,99 @@ namespace Messenger
     /// <summary>
     /// Key class to hold the key value for json serialization
     /// </summary>
-    class Key
+    class KeyStorage
     {
-        public string BaseKey { get; set; }
+        public required string email { get; set; }
+        public required string key { get; set; }
         //public byte[] eSize { get; set; }
         //public byte[] E { get; set; }
         //public byte[] nSize { get; set; }
         //public byte[] N { get; set; }
     }
 
+    class KeyClass
+    {
+        public int e { get; set; }
+        public int n { get; set; }
+        public BigInteger E { get; set; }
+        public BigInteger N { get; set; }
+    }
+
     class Messenger
     {
+        static readonly HttpClient client = new HttpClient();
+#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
+#pragma warning disable CS8602 // Dereference of a possibly null reference.
+        static string email;
+        static string KURI;
         static void Main(string[] args)
         {
+            KURI = "http://voyager.cs.rit.edu:5050/Key/";
+            email = "toivcs@rit.edu";
+            KeyClass key = new KeyClass();
+            Task task = GetKey(key);
+            task.Wait();
+            Console.WriteLine(key.e);
+            Console.WriteLine(key.E);
+            Console.WriteLine(key.n);
+            Console.WriteLine(key.N);
 
-
-            //string publicKey = getBaseString(e, n);
-            //string privateKey = getBaseString(d, n);
-            //var publickey = new Key
-            //{
-            //    BaseKey = publicKey
-            //};
-            //var privatekey = new Key
-            //{
-            //    BaseKey = privateKey
-            //};
-            ////            byte[] publicBytes = Encoding.UTF8.GetBytes(Publickey);
-            ////return Convert.ToBase64String(publicBytes);
-            //string jsonString = JsonSerializer.Serialize(privatekey);
-            //byte[] privatebytes = Encoding.UTF8.GetBytes(jsonString);
-            //string b64String = Convert.ToBase64String(privatebytes);
-
-            //string fileName = String.Format(@"{0}\privateKey.txt", Environment.CurrentDirectory);
-            //using (StreamWriter outputFile = new StreamWriter(fileName))
-            //{
-            //    outputFile.WriteLine(b64String);
-            //}
-            //KeyReader prkey = new KeyReader();
-            //StreamReader sr = new StreamReader(fileName);
-            //string b64json = sr.ReadLine();
-            //byte[] privatebytes2 = Convert.FromBase64String(b64String);
-            //string jsonString2 = Encoding.UTF8.GetString(privatebytes2);
-            //Key? privkey = JsonSerializer.Deserialize<Key>(jsonString2);
-            //prkey.Read(privkey.BaseKey);
-            //Console.WriteLine(prkey.E.ToString(), prkey.N.ToString(), prkey.eSize, prkey.nSize);
         }
 
-        public string GetKey(string key)
+        static async Task GetKey(KeyClass key)
         {
-            NotImplementedException er = new NotImplementedException();
-            return er.Message;
+            try
+            {
+                KeyStorage? publicKey = await client.GetFromJsonAsync<KeyStorage>(KURI + email);
+
+                string fileName = String.Format(@"{0}\publicKey.txt", Environment.CurrentDirectory);
+                using (StreamWriter outputFile = new(fileName))
+                {
+                    outputFile.WriteLine(publicKey.key);
+                }
+
+                byte[] raw = Convert.FromBase64String(publicKey.key);
+
+                byte[] nBytes = new byte[4];
+                byte[] eBytes = new byte[4];
+
+                Array.Copy(raw, 0, eBytes, 0, 4);
+                Array.Reverse(eBytes);
+                int e = BitConverter.ToInt32(eBytes);
+
+                byte[] EBytes = new byte[e];
+                Array.Copy(raw, 4, EBytes, 0, e);
+                BigInteger E = new BigInteger(EBytes);
+
+                Array.Copy(raw, e + 4, nBytes, 0, 4);
+                Array.Reverse(nBytes);
+                int n = BitConverter.ToInt32(nBytes);
+
+                byte[] NBytes = new byte[n];
+                Array.Copy(raw, 8 + e, NBytes, 0, n);
+                BigInteger N = new BigInteger(NBytes);
+                key.e = e;
+                key.n = n;
+                key.N = N;
+                key.E = E;
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            catch (NullReferenceException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
+            //catch
+            //{
+            //    Console.WriteLine("There was an error storing the key");
+            //}
+
         }
 
         public (BigInteger, BigInteger, BigInteger) GenKey()
@@ -180,6 +227,42 @@ namespace Messenger
             return (counter, value);
         }
     }
+}
+
+    ///The following is debunct code i want to use as reference later
+
+
+    ///This part is from main
+    /// //string publicKey = getBaseString(e, n);
+    //string privateKey = getBaseString(d, n);
+    //var publickey = new Key
+    //{
+    //    BaseKey = publicKey
+    //};
+    //var privatekey = new Key
+    //{
+    //    BaseKey = privateKey
+    //};
+    ////            byte[] publicBytes = Encoding.UTF8.GetBytes(Publickey);
+    ////return Convert.ToBase64String(publicBytes);
+    //string jsonString = JsonSerializer.Serialize(privatekey);
+    //byte[] privatebytes = Encoding.UTF8.GetBytes(jsonString);
+    //string b64String = Convert.ToBase64String(privatebytes);
+
+    //string fileName = String.Format(@"{0}\privateKey.txt", Environment.CurrentDirectory);
+    //using (StreamWriter outputFile = new StreamWriter(fileName))
+    //{
+    //    outputFile.WriteLine(b64String);
+    //}
+    //KeyReader prkey = new KeyReader();
+    //StreamReader sr = new StreamReader(fileName);
+    //string b64json = sr.ReadLine();
+    //byte[] privatebytes2 = Convert.FromBase64String(b64String);
+    //string jsonString2 = Encoding.UTF8.GetString(privatebytes2);
+    //Key? privkey = JsonSerializer.Deserialize<Key>(jsonString2);
+    //prkey.Read(privkey.BaseKey);
+    //Console.WriteLine(prkey.E.ToString(), prkey.N.ToString(), prkey.eSize, prkey.nSize);
+
     ///// <summary>
     ///// KeyReader is a class to read the deserialized json values
     ///// </summary>
@@ -251,4 +334,3 @@ namespace Messenger
     //    //Publickey += temp.ToString();
     //    //return Publickey;
     //}
-}
